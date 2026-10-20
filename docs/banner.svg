@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="Metal Gear Solid 2 Sons of Liberty — Android ARM64">
+  <defs>
+    <linearGradient id="fundo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1712"/>
+      <stop offset="1" stop-color="#040806"/>
+    </linearGradient>
+    <pattern id="linhas" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#7fd6a0" opacity="0.035"/>
+    </pattern>
+    <radialGradient id="brilho" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#7fd6a0" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#7fd6a0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1280" height="360" fill="url(#fundo)"/>
+  <rect width="1280" height="360" fill="url(#brilho)"/>
+  <rect width="1280" height="360" fill="url(#linhas)"/>
+  <!-- moldura do codec -->
+  <g fill="none" stroke="#7fd6a0" stroke-width="2" opacity="0.55">
+    <path d="M40 40 h70 M40 40 v46"/><path d="M1240 40 h-70 M1240 40 v46"/>
+    <path d="M40 320 h70 M40 320 v-46"/><path d="M1240 320 h-70 M1240 320 v-46"/>
+  </g>
+  <!-- frequencia do codec -->
+  <g transform="translate(140 182)" opacity="0.8">
+    <rect x="-70" y="-46" width="140" height="92" rx="10" fill="#08100c" stroke="#7fd6a0" stroke-width="2"/>
+    <text x="0" y="12" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="34" font-weight="700" fill="#7fd6a0">140.85</text>
+    <g fill="#7fd6a0" opacity="0.6"><rect x="-56" y="26" width="8" height="8"/><rect x="-44" y="26" width="8" height="8"/><rect x="-32" y="26" width="8" height="8"/><rect x="-20" y="26" width="8" height="8" opacity="0.4"/><rect x="-8" y="26" width="8" height="8" opacity="0.25"/></g>
+  </g>
+  <g transform="translate(1140 182)" opacity="0.8">
+    <rect x="-70" y="-46" width="140" height="92" rx="10" fill="#08100c" stroke="#7fd6a0" stroke-width="2"/>
+    <text x="0" y="-6" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="20" font-weight="700" fill="#7fd6a0">ARM32</text>
+    <text x="0" y="12" text-anchor="middle" font-family="Consolas, monospace" font-size="16" fill="#7fd6a0" opacity="0.7">▼</text>
+    <text x="0" y="34" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="20" font-weight="700" fill="#7fd6a0">ARM64</text>
+  </g>
+  <text x="640" y="120" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="18" letter-spacing="9" fill="#95a59d">UNOFFICIAL ANDROID PORT · PORTE NÃO OFICIAL</text>
+  <text x="640" y="196" text-anchor="middle" font-family="'Arial Black', 'Segoe UI Black', Impact, sans-serif" font-size="62" font-weight="900" letter-spacing="2" fill="#e8efeb" filter="url(#glow)">METAL GEAR SOLID 2</text>
+  <text x="640" y="238" text-anchor="middle" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" letter-spacing="12" fill="#7fd6a0">SONS OF LIBERTY · HD</text>
+  <line x1="420" y1="268" x2="860" y2="268" stroke="#7fd6a0" stroke-width="1.5" opacity="0.5"/>
+  <text x="640" y="300" text-anchor="middle" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="17" fill="#95a59d">static recompilation · Adreno &amp; Mali · LSFG frame generation</text>
+</svg>
