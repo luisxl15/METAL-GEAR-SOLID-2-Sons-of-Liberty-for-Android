@@ -22,9 +22,6 @@
 
 A versão do SHIELD é um jogo nativo para ARM de **32 bits**. Os processadores novos (como o Snapdragon 8 Elite) **não executam mais código de 32 bits**, então o APK original nem instala. Este projeto faz uma **recompilação estática**: lê o binário ARM32 do jogo, traduz cada função para C e compila de novo para **ARM64**, com um runtime próprio que substitui o sistema do SHIELD (memória, libc, OpenGL, áudio, JNI).
 
-> [!IMPORTANT]
-> **Este repositório não contém o jogo.** Nada da Konami nem da NVIDIA está aqui: nem código do jogo, nem APK, nem OBB, nem dados. Para jogar você precisa da **sua própria cópia** do MGS2 HD da SHIELD TV (versão **21.21.1219.GM**: o `base.apk` e as duas OBBs) e montar o APK a partir dela. Projeto de fãs, sem nenhuma ligação com a Konami ou a NVIDIA.
-
 ## 📸 Capturas
 
 | Tela inicial | Título com controles na tela |
