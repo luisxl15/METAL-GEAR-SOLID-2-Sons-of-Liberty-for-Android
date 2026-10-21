@@ -35,8 +35,35 @@ static void instala_sinais(void) {
     sigaction(SIGBUS, &sa, &ant_bus);
 }
 
+/* Saves das versoes antigas: o cartao de memoria do jogo criava a pasta de cada save sem o
+ * modo (r--------, ver I_mkdir em pontes_auto.c) e nada gravava dentro. Sobrescrever um save
+ * nao passa pelo mkdir, entao o conserto vai aqui, uma vez por abertura: toda pasta do app em
+ * <FORGELIB_LOG_PATH>/Documents/mgs2_savedata ganha rwxr-x---. */
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+static void conserta_pastas_de_save(void) {
+    const char *pd = getenv("FORGELIB_LOG_PATH");
+    if (!pd) return;
+    char raiz[512], cam[768];
+    snprintf(raiz, sizeof raiz, "%s/Documents/mgs2_savedata", pd);
+    DIR *d = opendir(raiz);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (e->d_name[0] == '.') continue;
+        snprintf(cam, sizeof cam, "%s/%s", raiz, e->d_name);
+        struct stat st;
+        if (stat(cam, &st) || !S_ISDIR(st.st_mode) || st.st_uid != getuid() || (st.st_mode & 0750) == 0750) continue;
+        int r = chmod(cam, (st.st_mode & 07777) | 0750);
+        rt_log("save: %s estava %o; chmod -> %s", e->d_name, (unsigned)(st.st_mode & 07777), r ? "falhou" : "ok");
+    }
+    closedir(d);
+}
+
 static void sobe(void) {
     instala_sinais();
+    conserta_pastas_de_save();
     Dl_info di;
     if (dladdr((void *)sobe, &di) && di.dli_fname) {
         snprintf(dir_libs, sizeof dir_libs, "%s", di.dli_fname);

@@ -81,6 +81,18 @@ def gatilho(nome, rot):
     finaliza(im, w, h, nome)
 
 
+def clique(nome, rot):
+    """L3/R3 (apertar o analogico): redondo, com o anel do topo do analogico em volta do rotulo"""
+    w = h = 80
+    im = tela(w, h); d = ImageDraw.Draw(im)
+    m = 4 * SS
+    vidro(d, (m, m, w * SS - m, h * SS - m), (w * SS) // 2, VERDE)
+    r = 25 * SS
+    d.ellipse((w * SS / 2 - r, h * SS / 2 - r, w * SS / 2 + r, h * SS / 2 + r), outline=(*VERDE, 120), width=2 * SS)
+    texto(d, w * SS / 2, h * SS / 2, rot, 30 * SS, VERDE)
+    finaliza(im, w, h, nome)
+
+
 def menu(nome, w, h, desenho):
     im = tela(w, h); d = ImageDraw.Draw(im)
     m = 5 * SS
@@ -133,6 +145,7 @@ def main():
     ombro('pad_lb', 'LB'); ombro('pad_rb', 'RB')
     gatilho('pad_lt', 'LT'); gatilho('pad_rt', 'RT')
     menu('pad_start', 86, 78, start); menu('pad_back', 83, 79, back)
+    clique('pad_l3', 'L3'); clique('pad_r3', 'R3')
     dpad('pad_dpad', None)
     for lado in ('cima', 'baixo', 'esq', 'dir'):
         dpad('pad_dpad_' + lado, lado)

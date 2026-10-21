@@ -9,6 +9,7 @@
 #include <wctype.h>
 #include <wchar.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "compat_pc.h"
 const char *rt_caminho(const char *p, char *buf, size_t n);   /* caminho.c */
 #include <sys/stat.h>
@@ -663,7 +664,30 @@ void I_mkdir(CPU *c) { RT_PRIMEIRA("mkdir");
     Args a = args_de(c); (void)a;
     char _b0[1024]; const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
     uint32_t a1 = arg32(&a);
+#ifndef _WIN32
+    /* O cartao de memoria do jogo (0x0260c2ac) chama mkdir(caminho) SEM o modo: r1 sobra do
+     * snprintf (0x104 = 0404) e a pasta do save (mgs2_savedata/BESLES-...) nascia r--------.
+     * No SHIELD o sdcardfs ignorava permissoes; o Android atual nao, e nenhum save gravava.
+     * Usa o mesmo 0755 do CreateDirectory da camada (0x1ed; com o umask vira rwxr-x---, como as
+     * pastas-mae): o dono grava e o grupo ext_data_rw le, entao da para copiar o save pelo PC.
+     * A pasta que ja nasceu errada (r-------- ou rwx------) e consertada no EEXIST. */
+    int r = mkdir(a0, (a1 & 07777) | 0755);
+    if (r < 0 && errno == EEXIST) {
+        struct stat st;
+        /* so as pastas do proprio app: o mkdir recursivo do jogo passa por /storage/emulated */
+        if (stat(a0, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == getuid() && (st.st_mode & 0750) != 0750) {
+            int ok = chmod(a0, (st.st_mode & 07777) | 0750);
+            rt_log("mkdir: %s existia sem rwxr-x--- (%o); chmod -> %s", (char *)a0,
+                   (unsigned)(st.st_mode & 07777), ok ? "falhou" : "ok");
+        }
+        /* o jogo le o errno logo depois: tudo que nao for EEXIST vira raise(SIGTRAP) no
+         * cartao de memoria (0x0260c390) ou aborta o mkdir recursivo do CreateDirectory */
+        errno = EEXIST;
+    }
+    ret32(c, (uint32_t)r);
+#else
     ret32(c, (uint32_t)(mkdir(a0, a1)));
+#endif
 }
 
 void I_rmdir(CPU *c) { RT_PRIMEIRA("rmdir");
@@ -781,7 +805,22 @@ void I_open(CPU *c) { RT_PRIMEIRA("open");
     char _b0[1024]; const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
     int32_t a1 = (int32_t)arg32(&a);
     uint32_t a2 = arg32(&a);
+#ifndef _WIN32
+    /* flags do ARM32 -> ARM64: O_DIRECTORY/O_NOFOLLOW/O_DIRECT/O_LARGEFILE tem outros valores.
+     * O CreateFile da camada da TransGaming sempre poe 0xa0000 (O_CLOEXEC|O_LARGEFILE do
+     * ARM32); cru, o 0x20000 virava O_NOFOLLOW aqui. */
+    int fl = a1 & ~0x3c000;
+    if (a1 & 0x04000) fl |= O_DIRECTORY;
+    if (a1 & 0x08000) fl |= O_NOFOLLOW;
+    if (a1 & 0x10000) fl |= O_DIRECT;
+    int fd = open(a0, fl, (int)a2);
+#else
     int fd = open(a0, a1, (int)a2);
+#endif
+    if (fd < 0) {   /* falha de open sempre no log (as 40 primeiras), como a do fopen */
+        static int nf; if (__atomic_fetch_add(&nf, 1, __ATOMIC_RELAXED) < 40)
+            rt_log("open FALHOU: %s (%x) errno %d", (char *)a0, a1, errno);
+    }
 #ifdef MGS2_DEPURA
     { static int n; if (__atomic_fetch_add(&n, 1, __ATOMIC_RELAXED) < 80) rt_log("open(%s, %x) -> %d", (char *)a0, a1, fd); }
 #endif
