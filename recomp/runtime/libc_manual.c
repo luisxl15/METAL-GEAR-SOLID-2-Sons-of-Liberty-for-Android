@@ -854,6 +854,10 @@ void I_syscall(CPU *c) { RT_PRIMEIRA("syscall");
         ret32(c, (uint32_t)r);
         return;
     }
+    case 268: /* tgkill(pid, tid, sig): a camada da TransGaming manda sinal 0 para ver se uma
+               * thread ainda vive; os tids sao os do hospedeiro (gettid acima) */
+        ret32(c, (uint32_t)syscall(SYS_tgkill, (int)c->r[1], (int)c->r[2], (int)c->r[3]));
+        return;
 #endif
     default:
         rt_log("syscall %u nao suportada", c->r[0]);

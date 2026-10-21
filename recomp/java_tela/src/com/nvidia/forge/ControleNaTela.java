@@ -28,7 +28,7 @@ public class ControleNaTela extends View {
 
     public static final int OPACIDADE_PADRAO = 62;
     public static final String[] NOMES = { "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "START", "BACK",
-            "DPAD", "ANALOG_E", "ANALOG_D" };
+            "L3", "R3", "DPAD", "ANALOG_E", "ANALOG_D" };
 
     public static String rotulo(String n) {
         switch (n) {
@@ -88,6 +88,8 @@ public class ControleNaTela extends View {
         areas.add(new Area("RT", bm("pad_rt"), 0, Boolean.FALSE));
         areas.add(new Area("START", bm("pad_start"), ControleMGS2.START, null));
         areas.add(new Area("BACK", bm("pad_back"), ControleMGS2.BACK, null));
+        areas.add(new Area("L3", bm("pad_l3"), ControleMGS2.ANALOG_E, null));   // apertar o analogico
+        areas.add(new Area("R3", bm("pad_r3"), ControleMGS2.ANALOG_D, null));
         dpad = bm("pad_dpad"); dpadCima = bm("pad_dpad_cima"); dpadBaixo = bm("pad_dpad_baixo");
         dpadEsq = bm("pad_dpad_esq"); dpadDir = bm("pad_dpad_dir");
         vibrar = AjustesMGS2.vibrar(ctx);
@@ -191,7 +193,7 @@ public class ControleNaTela extends View {
     private void posicionar(float L, float A) {
         float m = dp(16f);
         float analog = dp(76f), cruz = dp(70f), botao = dp(38f);
-        float ombroL = dp(70f), ombroA = dp(28f), gatL = dp(40f), gatA = dp(56f), menu = dp(30f);
+        float ombroL = dp(70f), ombroA = dp(28f), gatL = dp(40f), gatA = dp(56f), menu = dp(30f), clique = dp(34f);
 
         pos("LT", m + dp(10f), m, gatL, gatA);
         pos("LB", m, m + gatA + dp(6f), ombroL, ombroA);
@@ -210,6 +212,10 @@ public class ControleNaTela extends View {
         pos("B", cxd + dp(34f) - botao / 2, cyd - botao / 2, botao, botao);
 
         caixaAnalogD.set(L - m - analog - dp(28f), A - m - analog, L - m - dp(28f), A - m);
+
+        // L3/R3 ao lado de cada analogico, por dentro (do lado do centro da tela), na altura do meio dele
+        pos("L3", caixaAnalogE.right + dp(10f), caixaAnalogE.centerY() - clique / 2, clique, clique);
+        pos("R3", caixaAnalogD.left - dp(10f) - clique, caixaAnalogD.centerY() - clique / 2, clique, clique);
 
         pos("BACK", L / 2 - menu - dp(14f), A - m - menu, menu, menu);
         pos("START", L / 2 + dp(14f), A - m - menu, menu, menu);

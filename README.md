@@ -234,6 +234,11 @@ flowchart LR
    ```bash
    python recomp/preparar.py
    ```
+   Sem o `base.apk`, mas com um APK ARM64 já montado por este projeto, dá para reconstruir as mesmas bibliotecas a partir das imagens que vão dentro dele (o script confere byte a byte):
+   ```bash
+   python recomp/reconstruir_libs.py caminho/do/MGS2-ARM64.apk
+   python recomp/reconstruir_base.py caminho/do/MGS2-ARM64.apk
+   ```
 4. **Recompile** o jogo. A primeira vez leva uns 10 minutos e gera `recomp/saida/`:
    ```bash
    python recomp/recompilar.py
@@ -496,6 +501,11 @@ flowchart LR
 3. **Put your game files** in `jogo/` (step 1 of the guide) and extract the ARM32 libraries:
    ```bash
    python recomp/preparar.py
+   ```
+   Without the `base.apk`, but with an ARM64 APK already built by this project, the same libraries can be rebuilt from the images inside it (the script checks them byte by byte):
+   ```bash
+   python recomp/reconstruir_libs.py path/to/MGS2-ARM64.apk
+   python recomp/reconstruir_base.py path/to/MGS2-ARM64.apk
    ```
 4. **Recompile** the game. The first run takes about 10 minutes and creates `recomp/saida/`:
    ```bash

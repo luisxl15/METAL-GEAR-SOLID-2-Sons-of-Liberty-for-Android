@@ -25,10 +25,14 @@ OBJ = os.path.join(AQUI, 'build', 'android', 'obj_' + NOME)
 LIBS = os.path.join(AQUI, 'build', 'android', 'libs_' + NOME)
 os.makedirs(OBJ, exist_ok=True); os.makedirs(LIBS, exist_ok=True)
 
-# ARMv8.2 + fp16 + dotprod: qualquer SoC Android de 2019 para ca (Snapdragon 855+,
-# Dimensity 700+). O sabor mali afina o agendamento para os Cortex-A715/A720/X dos
-# Dimensity 8000/9000; o adreno fica generico (Oryon nao tem modelo neste clang).
-CPU = ['-march=armv8.2-a+fp16+dotprod']
+# ARMv8.0 base: Snapdragon 680/685/662/665 e Helio G35..G88 (Cortex-A73/A53) ainda vendem e
+# NAO tem as atomicas LSE do ARMv8.1. Com -march=armv8.2-a o clang emitia casal/ldaddal em
+# linha (ldrex/strex do jogo, pthread_once...) e esses aparelhos morriam com SIGILL no
+# primeiro construtor (F_02a11330, ainda no JNI_OnLoad). -moutline-atomics escolhe LSE ou
+# ldaxr/stlxr na hora, pelo HWCAP; fp16/dotprod o C gerado nao usava.
+# O sabor mali afina o agendamento para os Cortex-A715/A720/X dos Dimensity 8000/9000
+# (-mtune nao muda o conjunto de instrucoes); o adreno fica generico.
+CPU = ['-march=armv8-a', '-moutline-atomics']
 if SABOR == 'mali':
     CPU += ['-mtune=cortex-a715', '-DMGS2_MALI']
 DEF = ['-DMGS2_DEPURA'] if DEPURA else []
@@ -80,6 +84,24 @@ r = subprocess.run([CXX, ALVO, '-shared', '-static-libstdc++', '-o', os.path.joi
                     '-lEGL', '-lGLESv2', '-lvulkan', '-lnativewindow', '-lOpenSLES', '-landroid', '-llog', '-ldl', '-lm'], capture_output=True, text=True)
 if r.returncode:
     print(r.stderr[:5000]); sys.exit(1)
+# guarda do ARMv8.0: nenhuma instrucao LSE/RDM/dotprod/RCpc fora das funcoes de atomica
+# do compiler-rt (__aarch64_*, que testam o HWCAP antes). Uma so derruba o Snapdragon 680.
+POS_V80 = ('cas', 'ldadd', 'ldclr', 'ldeor', 'ldset', 'ldsmax', 'ldsmin', 'ldumax', 'ldumin', 'swp',
+           'stadd', 'stclr', 'steor', 'stset', 'stsmax', 'stsmin', 'stumax', 'stumin',
+           'sqrdmlah', 'sqrdmlsh', 'sdot', 'udot', 'ldapr')
+dump = subprocess.run([caminhos.exe(NDK, 'llvm-objdump'), '-d', '--no-show-raw-insn', os.path.join(LIBS, 'libMGS2HD.so')],
+                      capture_output=True, text=True).stdout
+funcao, achadas = '', {}
+for linha in dump.splitlines():
+    if linha.endswith('>:'):
+        funcao = linha.split('<', 1)[1][:-2]
+        continue
+    p = linha.split('\t')
+    if len(p) > 1 and p[1].strip().startswith(POS_V80) and not funcao.startswith('__aarch64_'):
+        achadas.setdefault(p[1].strip(), funcao)
+if achadas:
+    sys.exit(f'instrucoes alem do ARMv8.0 em libMGS2HD.so: {achadas}')
+print('ARMv8.0: nenhuma instrucao LSE/dotprod/RDM fora de __aarch64_*')
 for nome, src, extra in (('libjava_util.so', os.path.join(AQUI, 'java_util', 'java_util.c'), []),
                          ('libnvsi.so', os.path.join(AQUI, '..', 'nvsi', 'libnvsi.c'), ['-llog'])):
     if not os.path.exists(src):   # componente nao incluido neste repositorio (ver README)
