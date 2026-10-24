@@ -166,7 +166,11 @@ void rt_quadro(void) {
     if (!ini_janela) ini_janela = t;
     quadros++;
     if (t - ini_janela >= 2000000000ull) {
-        rt_log("%.1f quadros/s (heap do jogo: %u MB)", quadros * 1e9 / (double)(t - ini_janela), heap_topo_atual() >> 20);
+        unsigned long long pq_mostrados(void); static unsigned long long mostrados_ant;
+        unsigned long long m = pq_mostrados();
+        rt_log("%.1f quadros/s de jogo, %.1f na tela (heap do jogo: %u MB)", quadros * 1e9 / (double)(t - ini_janela),
+               (m - mostrados_ant) * 1e9 / (double)(t - ini_janela), heap_topo_atual() >> 20);
+        mostrados_ant = m;
 #ifdef MGS2_DEPURA
         void gl_estat_log(void); gl_estat_log();
 #endif
@@ -186,7 +190,8 @@ JNIEXPORT jlongArray JNICALL Java_com_nvidia_forge_MedidorFps_contadores(JNIEnv 
     jlong v[4];
     v[0] = (jlong)__atomic_load_n(&g_quadros_jogo, __ATOMIC_RELAXED);
     v[3] = fg_ativo();
-    v[1] = v[3] ? (jlong)fg_apresentados() : v[0];
+    unsigned long long pq_mostrados(void);   /* com o pulo de quadros, a tela mostra menos que o jogo calcula */
+    v[1] = v[3] ? (jlong)fg_apresentados() : (jlong)pq_mostrados();
     v[2] = v[3] ? (jlong)fg_gerados() : 0;
     jlongArray r = (*e)->NewLongArray(e, 4);
     if (r) (*e)->SetLongArrayRegion(e, r, 0, 4, v);

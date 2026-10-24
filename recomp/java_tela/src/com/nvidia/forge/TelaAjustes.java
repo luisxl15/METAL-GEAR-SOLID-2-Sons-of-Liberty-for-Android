@@ -38,7 +38,7 @@ final class TelaAjustes {
 
     // valores em edicao
     private int fps;
-    private boolean esticar, vibrar, medidor;
+    private boolean esticar, vibrar, medidor, pulo;
     private String controles;
     private int opacidade;
     private int lsfg, lsfgFluxo;
@@ -97,6 +97,7 @@ final class TelaAjustes {
         esticar = AjustesMGS2.esticar(a);
         medidor = AjustesMGS2.medidorFps(a);
         vibrar = AjustesMGS2.vibrar(a);
+        pulo = AjustesMGS2.pulo(a);
         controles = AjustesMGS2.controles(a);
         opacidade = AjustesMGS2.de(a).getInt("ctl_opacidade", ControleNaTela.OPACIDADE_PADRAO);
         lsfg = AjustesMGS2.lsfg(a);
@@ -287,9 +288,17 @@ final class TelaAjustes {
         cont.addView(rotuloSecao(Textos.t("VÍDEO")));
         LinearLayout c1 = cartao();
         final int[] fpsVal = { 30, 60, 0 };
-        c1.addView(linha(Textos.t("Limite de quadros"), Textos.t("O MGS2 foi feito para 60. Sem limite segue a tela (até 120 Hz) e pode acelerar o jogo."),
+        c1.addView(linha(Textos.t("Limite de quadros"), Textos.t("Quantos quadros por segundo vão para a tela. Com velocidade constante o jogo anda sempre em 60; sem ela, 30 deixa o jogo na metade da velocidade e Sem limite pode acelerá-lo."),
                 segmentado(new String[] { "30", "60", Textos.t("Sem limite") }, fps == 30 ? 0 : fps == 60 ? 1 : 2,
                         new AoEscolher() { @Override public void escolheu(int i) { fps = fpsVal[i]; } })));
+        c1.addView(divisoria());
+        Switch swPulo = new Switch(a);
+        swPulo.setChecked(pulo);
+        swPulo.getThumbDrawable().setTint(VERDE);
+        swPulo.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(android.widget.CompoundButton b, boolean v) { pulo = v; }
+        });
+        c1.addView(linha(Textos.t("Velocidade constante"), Textos.t("O jogo anda sempre na velocidade certa (60 passos por segundo). Se o aparelho não acompanhar, ou com o limite em 30, alguns quadros deixam de ser desenhados em vez de o jogo ficar lento."), swPulo));
         c1.addView(divisoria());
         c1.addView(linha(Textos.t("Imagem"), Textos.t("16:9 mantém a proporção do jogo. Esticar ocupa a tela toda, deformando um pouco."),
                 segmentado(new String[] { "16:9", Textos.t("Esticar") }, esticar ? 1 : 0,
@@ -391,6 +400,7 @@ final class TelaAjustes {
                     .putString("controles", controles)
                     .putInt("ctl_opacidade", opacidade)
                     .putBoolean("vibrar", vibrar)
+                    .putBoolean("pulo", pulo)
                     .putInt("lsfg", lsfg)
                     .putInt("lsfg_fluxo", lsfgFluxo)
                     .apply();

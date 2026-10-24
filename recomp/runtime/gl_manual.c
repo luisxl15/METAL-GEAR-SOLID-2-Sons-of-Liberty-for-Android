@@ -66,6 +66,7 @@ void G_glBindBuffer(CPU *c) {
     else if (alvo == GL_DRAW_INDIRECT_BUFFER) t_indirect_buf = b;
     glBindBuffer(alvo, b);
 }
+int pq_desenha(void);   /* pulo de quadros (pulo.c) */
 static GLuint elem_buf(void) { GLint b = 0; glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &b); return (GLuint)b; }
 #define PTR_OU_OFF(buf, g) ((buf) ? (const void *)(uintptr_t)(g) : (const void *)G2H(g))
 
@@ -219,8 +220,9 @@ void G_glVertexAttribIPointer(CPU *c) {
     GLuint i = arg32(&a); GLint s = (GLint)arg32(&a); GLenum t = arg32(&a); GLsizei st = (GLsizei)arg32(&a); uint32_t p = arg32(&a);
     glVertexAttribIPointer(i, s, t, st, PTR_OU_OFF(t_array_buf, p));
 }
-void G_glDrawElements(CPU *c) { g_est[4]++; gl_mostra_vertices("DrawElements", 0); glDrawElements(c->r[0], (GLsizei)c->r[1], c->r[2], PTR_OU_OFF(elem_buf(), c->r[3])); }
+void G_glDrawElements(CPU *c) { if (!pq_desenha()) return; g_est[4]++; gl_mostra_vertices("DrawElements", 0); glDrawElements(c->r[0], (GLsizei)c->r[1], c->r[2], PTR_OU_OFF(elem_buf(), c->r[3])); }
 static void inst_(CPU *c) {
+    if (!pq_desenha()) return;
     Args a = args_de(c);
     GLenum m = arg32(&a); GLsizei n = (GLsizei)arg32(&a); GLenum t = arg32(&a); uint32_t p = arg32(&a); GLsizei ic = (GLsizei)arg32(&a);
     glDrawElementsInstanced(m, n, t, PTR_OU_OFF(elem_buf(), p), ic);
@@ -229,12 +231,13 @@ void G_glDrawElementsInstanced(CPU *c) { inst_(c); }
 void G_glDrawElementsInstancedEXT(CPU *c) { inst_(c); }
 void G_glDrawElementsInstancedANGLE(CPU *c) { inst_(c); }
 void G_glDrawElementsInstancedNV(CPU *c) { inst_(c); }
-void G_glDrawRangeElements(CPU *c) { g_est[4]++; gl_mostra_vertices("DrawRangeElements", 0);
+void G_glDrawRangeElements(CPU *c) { if (!pq_desenha()) return; g_est[4]++; gl_mostra_vertices("DrawRangeElements", 0);
     Args a = args_de(c);
     GLenum m = arg32(&a); GLuint s = arg32(&a), e = arg32(&a); GLsizei n = (GLsizei)arg32(&a); GLenum t = arg32(&a); uint32_t p = arg32(&a);
     glDrawRangeElements(m, s, e, n, t, PTR_OU_OFF(elem_buf(), p));
 }
 static void base_(CPU *c) {
+    if (!pq_desenha()) return;
     Args a = args_de(c);
     GLenum m = arg32(&a); GLsizei n = (GLsizei)arg32(&a); GLenum t = arg32(&a); uint32_t p = arg32(&a); GLint bv = (GLint)arg32(&a);
     glDrawElementsBaseVertex(m, n, t, PTR_OU_OFF(elem_buf(), p), bv);
@@ -243,6 +246,7 @@ void G_glDrawElementsBaseVertex(CPU *c) { base_(c); }
 void G_glDrawElementsBaseVertexEXT(CPU *c) { base_(c); }
 void G_glDrawElementsBaseVertexOES(CPU *c) { base_(c); }
 static void inst_base_(CPU *c) {
+    if (!pq_desenha()) return;
     Args a = args_de(c);
     GLenum m = arg32(&a); GLsizei n = (GLsizei)arg32(&a); GLenum t = arg32(&a); uint32_t p = arg32(&a);
     GLsizei ic = (GLsizei)arg32(&a); GLint bv = (GLint)arg32(&a);
@@ -252,6 +256,7 @@ void G_glDrawElementsInstancedBaseVertex(CPU *c) { inst_base_(c); }
 void G_glDrawElementsInstancedBaseVertexEXT(CPU *c) { inst_base_(c); }
 void G_glDrawElementsInstancedBaseVertexOES(CPU *c) { inst_base_(c); }
 static void range_base_(CPU *c) {
+    if (!pq_desenha()) return;
     Args a = args_de(c);
     GLenum m = arg32(&a); GLuint s = arg32(&a), e = arg32(&a); GLsizei n = (GLsizei)arg32(&a); GLenum t = arg32(&a);
     uint32_t p = arg32(&a); GLint bv = (GLint)arg32(&a);
@@ -262,8 +267,8 @@ void G_glDrawRangeElementsBaseVertexEXT(CPU *c) { range_base_(c); }
 void G_glDrawRangeElementsBaseVertexOES(CPU *c) { range_base_(c); }
 void G_glMultiDrawElementsEXT(CPU *c) { (void)c; rt_fatal("glMultiDrawElementsEXT nao suportado"); }
 void G_glMultiDrawElementsBaseVertexEXT(CPU *c) { (void)c; rt_fatal("glMultiDrawElementsBaseVertexEXT nao suportado"); }
-void G_glDrawElementsIndirect(CPU *c) { glDrawElementsIndirect(c->r[0], c->r[1], (const void *)(uintptr_t)c->r[2]); }
-void G_glDrawArraysIndirect(CPU *c) { glDrawArraysIndirect(c->r[0], (const void *)(uintptr_t)c->r[1]); }
+void G_glDrawElementsIndirect(CPU *c) { if (!pq_desenha()) return; glDrawElementsIndirect(c->r[0], c->r[1], (const void *)(uintptr_t)c->r[2]); }
+void G_glDrawArraysIndirect(CPU *c) { if (!pq_desenha()) return; glDrawArraysIndirect(c->r[0], (const void *)(uintptr_t)c->r[1]); }
 
 /* ---- texturas (buffer de pixels ligado = deslocamento) ------------------- */
 /* formatos do desktop -> GLES (gl_formato.c) */
@@ -576,8 +581,10 @@ void I_eglQuerySurface(CPU *c) { RT_PRIMEIRA("eglQuerySurface"); EGLint v = 0; E
     ret32(c, r);
 }
 void rt_quadro(void);   /* contador de quadros / ritmo (android.c) */
-void aj_ritmo(void);   /* limite de quadros (ajustes.c) */
-void I_eglSwapBuffers(CPU *c) { RT_PRIMEIRA("eglSwapBuffers"); aj_ritmo(); rt_quadro();
+int pq_troca(void);     /* ritmo da logica e pulo de quadros (pulo.c) */
+void I_eglSwapBuffers(CPU *c) { RT_PRIMEIRA("eglSwapBuffers");
+    int mostra = pq_troca(); rt_quadro();
+    if (!mostra) { ret32(c, EGL_TRUE); return; }   /* quadro pulado: nada novo para a tela */
     if (fg_troca(egl_obj(c->r[0]), egl_obj(c->r[1]))) { ret32(c, EGL_TRUE); return; }
     ret32(c, eglSwapBuffers(egl_obj(c->r[0]), egl_obj(c->r[1]))); }
 void I_eglSwapInterval(CPU *c) { RT_PRIMEIRA("eglSwapInterval"); ret32(c, eglSwapInterval(egl_obj(c->r[0]), (EGLint)c->r[1])); }
