@@ -23,6 +23,9 @@ public final class AjustesMGS2 {
     public static int fps(Context c) { return de(c).getInt("fps", 60); }
     public static String controles(Context c) { return de(c).getString("controles", CONTROLES_AUTO); }
     public static boolean vibrar(Context c) { return de(c).getBoolean("vibrar", true); }
+    /** velocidade constante: a logica anda a 60 e quadros deixam de ser desenhados quando
+     *  o aparelho nao acompanha ou o limite pede (runtime/pulo.c) */
+    public static boolean pulo(Context c) { return de(c).getBoolean("pulo", true); }
     /** imagem esticada para a tela inteira (padrao: 16:9 original com faixas pretas) */
     public static boolean esticar(Context c) { return de(c).getBoolean("esticar", false); }
     /** geracao de quadros LSFG: 0 desligada, 1 = 2x (um quadro gerado por quadro do jogo) */
@@ -54,7 +57,7 @@ public final class AjustesMGS2 {
             File d = c.getExternalFilesDir(null);
             if (d == null) return;
             String txt = "fps=" + fps(c) + "\nesticar=" + (esticar(c) ? 1 : 0)
-                    + "\nlsfg=" + lsfg(c) + "\nlsfg_fluxo=" + lsfgFluxo(c) + "\n";
+                    + "\nlsfg=" + lsfg(c) + "\nlsfg_fluxo=" + lsfgFluxo(c) + "\npulo=" + (pulo(c) ? 1 : 0) + "\n";
             FileOutputStream o = new FileOutputStream(new File(d, "mgs2_ajustes.txt"));
             o.write(txt.getBytes("UTF-8"));
             o.close();

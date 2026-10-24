@@ -12,6 +12,12 @@
 #include <errno.h>
 #include "compat_pc.h"
 const char *rt_caminho(const char *p, char *buf, size_t n);   /* caminho.c */
+#ifndef _WIN32
+void rt_caminho_mudou(void);   /* criou/apagou algo: listagens de pasta em cache ficam velhas */
+#define MUDOU() rt_caminho_mudou()
+#else
+#define MUDOU() ((void)0)
+#endif
 #include <sys/stat.h>
 #ifndef _WIN32
 #include <unistd.h>
@@ -684,6 +690,7 @@ void I_mkdir(CPU *c) { RT_PRIMEIRA("mkdir");
          * cartao de memoria (0x0260c390) ou aborta o mkdir recursivo do CreateDirectory */
         errno = EEXIST;
     }
+    if (!r) MUDOU();
     ret32(c, (uint32_t)r);
 #else
     ret32(c, (uint32_t)(mkdir(a0, a1)));
@@ -693,19 +700,25 @@ void I_mkdir(CPU *c) { RT_PRIMEIRA("mkdir");
 void I_rmdir(CPU *c) { RT_PRIMEIRA("rmdir");
     Args a = args_de(c); (void)a;
     char _b0[1024]; const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
-    ret32(c, (uint32_t)(rmdir(a0)));
+    int r = rmdir(a0);
+    if (!r) MUDOU();
+    ret32(c, (uint32_t)r);
 }
 
 void I_unlink(CPU *c) { RT_PRIMEIRA("unlink");
     Args a = args_de(c); (void)a;
     char _b0[1024]; const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
-    ret32(c, (uint32_t)(unlink(a0)));
+    int r = unlink(a0);
+    if (!r) MUDOU();
+    ret32(c, (uint32_t)r);
 }
 
 void I_remove(CPU *c) { RT_PRIMEIRA("remove");
     Args a = args_de(c); (void)a;
     char _b0[1024]; const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
-    ret32(c, (uint32_t)(remove(a0)));
+    int r = remove(a0);
+    if (!r) MUDOU();
+    ret32(c, (uint32_t)r);
 }
 
 void I_rename(CPU *c) { RT_PRIMEIRA("rename");
@@ -713,7 +726,9 @@ void I_rename(CPU *c) { RT_PRIMEIRA("rename");
     char _b0[1024], _b1[1024];
     const char * a0 = rt_caminho(G2H(arg32(&a)), _b0, sizeof _b0);
     const char * a1 = rt_caminho(G2H(arg32(&a)), _b1, sizeof _b1);
-    ret32(c, (uint32_t)(rename(a0, a1)));
+    int r = rename(a0, a1);
+    if (!r) MUDOU();
+    ret32(c, (uint32_t)r);
 }
 
 void I_chdir(CPU *c) { RT_PRIMEIRA("chdir");
@@ -817,6 +832,7 @@ void I_open(CPU *c) { RT_PRIMEIRA("open");
 #else
     int fd = open(a0, a1, (int)a2);
 #endif
+    if (fd >= 0 && (a1 & O_CREAT)) MUDOU();
     if (fd < 0) {   /* falha de open sempre no log (as 40 primeiras), como a do fopen */
         static int nf; if (__atomic_fetch_add(&nf, 1, __ATOMIC_RELAXED) < 40)
             rt_log("open FALHOU: %s (%x) errno %d", (char *)a0, a1, errno);

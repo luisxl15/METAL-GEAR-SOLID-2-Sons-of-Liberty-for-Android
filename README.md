@@ -191,7 +191,8 @@ O LSFG usa os shaders do programa **Lossless Scaling** (pago, na Steam), lidos d
 | O jogo fecha logo ao abrir | Você copiou arquivos extraídos pelo PC/adb? Apague as pastas de `Android/data/jp.konami.mgs2hd.shield/files/` (menos `saveData`) e deixe o app extrair |
 | Os botões da tela não aparecem | **Ajustes → Mostrar controles na tela → Sempre** |
 | Jogo acelerado | **Ajustes → Limite de quadros → 60** |
-| Ver o log técnico | `adb logcat -s MGS2-RT MGS2-stdout DEBUG` |
+| Mandar o log de um problema | O jogo grava o log em `Android/data/jp.konami.mgs2hd.shield/files/mgs2_log.txt`. Se o jogo fechou, abra de novo e mande o `mgs2_log_anterior.txt` (é o da vez que fechou) |
+| Ver o log técnico pelo PC | `adb logcat -s MGS2-RT MGS2-stdout DEBUG` |
 
 ## ⚙️ Como funciona
 
@@ -459,7 +460,8 @@ LSFG uses the shaders from **Lossless Scaling** (paid, on Steam), read from **yo
 | The game closes right after opening | Did you copy extracted files from the PC/adb? Delete the folders in `Android/data/jp.konami.mgs2hd.shield/files/` (except `saveData`) and let the app extract |
 | On-screen buttons don't show up | **Settings → Show on-screen controls → Always** |
 | Game runs too fast | **Settings → Frame limit → 60** |
-| Technical log | `adb logcat -s MGS2-RT MGS2-stdout DEBUG` |
+| Sending a log for a problem | The game writes its log to `Android/data/jp.konami.mgs2hd.shield/files/mgs2_log.txt`. If the game closed, open it again and send `mgs2_log_anterior.txt` (the log from the run that closed) |
+| Technical log from a PC | `adb logcat -s MGS2-RT MGS2-stdout DEBUG` |
 
 ## ⚙️ How it works
 

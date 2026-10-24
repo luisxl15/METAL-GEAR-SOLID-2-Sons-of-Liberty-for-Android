@@ -10,6 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "gl_ponte.h"
+/* pulo de quadros (pulo.c) */
+void pq_bind_fb(GLenum alvo, GLuint fb);
+void pq_anexo(GLenum alvo, GLenum anexo, GLuint obj, int rb, GLuint sub);
+void pq_apaga_fbs(GLsizei n, const GLuint *ids);
+int pq_desenha(void);
+
 
 void G_glAcquireKeyedMutexWin32EXT(CPU *c) { RT_PRIMEIRA("glAcquireKeyedMutexWin32EXT");
     static GLboolean (*p)(GLuint, GLuint64, GLuint); if (!p) p = gl_proc("glAcquireKeyedMutexWin32EXT");
@@ -145,6 +151,7 @@ void G_glBindFramebuffer(CPU *c) { RT_PRIMEIRA("glBindFramebuffer");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
     GLuint a1 = (GLuint)arg32(&a);
+    pq_bind_fb(a0, a1);
     p(a0, a1);
 }
 void G_glBindImageTexture(CPU *c) { RT_PRIMEIRA("glBindImageTexture");
@@ -383,6 +390,7 @@ void G_glBlendParameteriNV(CPU *c) { RT_PRIMEIRA("glBlendParameteriNV");
     p(a0, a1);
 }
 void G_glBlitFramebuffer(CPU *c) { RT_PRIMEIRA("glBlitFramebuffer");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum); if (!p) p = gl_proc("glBlitFramebuffer");
     Args a = args_de(c); (void)a;
     GLint a0 = (GLint)arg32(&a);
@@ -468,6 +476,7 @@ void G_glBlitFramebuffer(CPU *c) { RT_PRIMEIRA("glBlitFramebuffer");
 #endif
 }
 void G_glBlitFramebufferANGLE(CPU *c) { RT_PRIMEIRA("glBlitFramebufferANGLE");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum); if (!p) p = gl_proc("glBlitFramebufferANGLE");
     Args a = args_de(c); (void)a;
     GLint a0 = (GLint)arg32(&a);
@@ -483,6 +492,7 @@ void G_glBlitFramebufferANGLE(CPU *c) { RT_PRIMEIRA("glBlitFramebufferANGLE");
     p(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9);
 }
 void G_glBlitFramebufferNV(CPU *c) { RT_PRIMEIRA("glBlitFramebufferNV");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum); if (!p) p = gl_proc("glBlitFramebufferNV");
     Args a = args_de(c); (void)a;
     GLint a0 = (GLint)arg32(&a);
@@ -543,12 +553,14 @@ void G_glCheckFramebufferStatus(CPU *c) { RT_PRIMEIRA("glCheckFramebufferStatus"
     ret32(c, (uint32_t)p(a0));
 }
 void G_glClear(CPU *c) { RT_PRIMEIRA("glClear");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLbitfield); if (!p) p = gl_proc("glClear");
     Args a = args_de(c); (void)a;
     GLbitfield a0 = (GLbitfield)arg32(&a);
     p(a0);
 }
 void G_glClearBufferfi(CPU *c) { RT_PRIMEIRA("glClearBufferfi");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLfloat, GLint); if (!p) p = gl_proc("glClearBufferfi");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -558,6 +570,7 @@ void G_glClearBufferfi(CPU *c) { RT_PRIMEIRA("glClearBufferfi");
     p(a0, a1, a2, a3);
 }
 void G_glClearBufferfv(CPU *c) { RT_PRIMEIRA("glClearBufferfv");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, const GLfloat *); if (!p) p = gl_proc("glClearBufferfv");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -566,6 +579,7 @@ void G_glClearBufferfv(CPU *c) { RT_PRIMEIRA("glClearBufferfv");
     p(a0, a1, a2);
 }
 void G_glClearBufferiv(CPU *c) { RT_PRIMEIRA("glClearBufferiv");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, const GLint *); if (!p) p = gl_proc("glClearBufferiv");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -574,6 +588,7 @@ void G_glClearBufferiv(CPU *c) { RT_PRIMEIRA("glClearBufferiv");
     p(a0, a1, a2);
 }
 void G_glClearBufferuiv(CPU *c) { RT_PRIMEIRA("glClearBufferuiv");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, const GLuint *); if (!p) p = gl_proc("glClearBufferuiv");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1032,6 +1047,7 @@ void G_glDeleteFramebuffers(CPU *c) { RT_PRIMEIRA("glDeleteFramebuffers");
     Args a = args_de(c); (void)a;
     GLsizei a0 = (GLsizei)arg32(&a);
     const GLuint * a1 = (const GLuint *)G2H(arg32(&a));
+    pq_apaga_fbs(a0, a1);
     p(a0, a1);
 }
 void G_glDeleteMemoryObjectsEXT(CPU *c) { RT_PRIMEIRA("glDeleteMemoryObjectsEXT");
@@ -1280,6 +1296,7 @@ void G_glDispatchComputeIndirect(CPU *c) { RT_PRIMEIRA("glDispatchComputeIndirec
     p(a0);
 }
 void G_glDrawArrays(CPU *c) { RT_PRIMEIRA("glDrawArrays");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei); if (!p) p = gl_proc("glDrawArrays");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1292,6 +1309,7 @@ void G_glDrawArrays(CPU *c) { RT_PRIMEIRA("glDrawArrays");
     p(a0, a1, a2);
 }
 void G_glDrawArraysInstanced(CPU *c) { RT_PRIMEIRA("glDrawArraysInstanced");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei, GLsizei); if (!p) p = gl_proc("glDrawArraysInstanced");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1301,6 +1319,7 @@ void G_glDrawArraysInstanced(CPU *c) { RT_PRIMEIRA("glDrawArraysInstanced");
     p(a0, a1, a2, a3);
 }
 void G_glDrawArraysInstancedANGLE(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedANGLE");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei, GLsizei); if (!p) p = gl_proc("glDrawArraysInstancedANGLE");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1310,6 +1329,7 @@ void G_glDrawArraysInstancedANGLE(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedAN
     p(a0, a1, a2, a3);
 }
 void G_glDrawArraysInstancedBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedBaseInstanceEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei, GLsizei, GLuint); if (!p) p = gl_proc("glDrawArraysInstancedBaseInstanceEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1320,6 +1340,7 @@ void G_glDrawArraysInstancedBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("glDrawArraysI
     p(a0, a1, a2, a3, a4);
 }
 void G_glDrawArraysInstancedEXT(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei, GLsizei); if (!p) p = gl_proc("glDrawArraysInstancedEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1329,6 +1350,7 @@ void G_glDrawArraysInstancedEXT(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedEXT"
     p(a0, a1, a2, a3);
 }
 void G_glDrawArraysInstancedNV(CPU *c) { RT_PRIMEIRA("glDrawArraysInstancedNV");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLint, GLsizei, GLsizei); if (!p) p = gl_proc("glDrawArraysInstancedNV");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1367,6 +1389,7 @@ void G_glDrawBuffersNV(CPU *c) { RT_PRIMEIRA("glDrawBuffersNV");
     p(a0, a1);
 }
 void G_glDrawElementsInstancedBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("glDrawElementsInstancedBaseInstanceEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLsizei, GLenum, const void *, GLsizei, GLuint); if (!p) p = gl_proc("glDrawElementsInstancedBaseInstanceEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1378,6 +1401,7 @@ void G_glDrawElementsInstancedBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("glDrawEleme
     p(a0, a1, a2, a3, a4, a5);
 }
 void G_glDrawElementsInstancedBaseVertexBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("glDrawElementsInstancedBaseVertexBaseInstanceEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLsizei, GLenum, const void *, GLsizei, GLint, GLuint); if (!p) p = gl_proc("glDrawElementsInstancedBaseVertexBaseInstanceEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1390,6 +1414,7 @@ void G_glDrawElementsInstancedBaseVertexBaseInstanceEXT(CPU *c) { RT_PRIMEIRA("g
     p(a0, a1, a2, a3, a4, a5, a6);
 }
 void G_glDrawTransformFeedbackEXT(CPU *c) { RT_PRIMEIRA("glDrawTransformFeedbackEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLuint); if (!p) p = gl_proc("glDrawTransformFeedbackEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1397,6 +1422,7 @@ void G_glDrawTransformFeedbackEXT(CPU *c) { RT_PRIMEIRA("glDrawTransformFeedback
     p(a0, a1);
 }
 void G_glDrawTransformFeedbackInstancedEXT(CPU *c) { RT_PRIMEIRA("glDrawTransformFeedbackInstancedEXT");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLenum, GLuint, GLsizei); if (!p) p = gl_proc("glDrawTransformFeedbackInstancedEXT");
     Args a = args_de(c); (void)a;
     GLenum a0 = (GLenum)arg32(&a);
@@ -1405,6 +1431,7 @@ void G_glDrawTransformFeedbackInstancedEXT(CPU *c) { RT_PRIMEIRA("glDrawTransfor
     p(a0, a1, a2);
 }
 void G_glDrawVkImageNV(CPU *c) { RT_PRIMEIRA("glDrawVkImageNV");
+    if (!pq_desenha()) return;   /* quadro pulado (pulo.c) */
     static void (*p)(GLuint64, GLuint, GLfloat, GLfloat, GLfloat, GLfloat, GLfloat, GLfloat, GLfloat, GLfloat, GLfloat); if (!p) p = gl_proc("glDrawVkImageNV");
     Args a = args_de(c); (void)a;
     GLuint64 a0 = (GLuint64)arg64(&a);
@@ -1706,6 +1733,7 @@ void G_glFramebufferRenderbuffer(CPU *c) { RT_PRIMEIRA("glFramebufferRenderbuffe
     GLenum a1 = (GLenum)arg32(&a);
     GLenum a2 = (GLenum)arg32(&a);
     GLuint a3 = (GLuint)arg32(&a);
+    pq_anexo(a0, a1, a3, 1, 0);
     p(a0, a1, a2, a3);
 }
 void G_glFramebufferSampleLocationsfvNV(CPU *c) { RT_PRIMEIRA("glFramebufferSampleLocationsfvNV");
@@ -1724,6 +1752,7 @@ void G_glFramebufferTexture(CPU *c) { RT_PRIMEIRA("glFramebufferTexture");
     GLenum a1 = (GLenum)arg32(&a);
     GLuint a2 = (GLuint)arg32(&a);
     GLint a3 = (GLint)arg32(&a);
+    pq_anexo(a0, a1, a2, 0, 0);
     p(a0, a1, a2, a3);
 }
 void G_glFramebufferTexture2D(CPU *c) { RT_PRIMEIRA("glFramebufferTexture2D");
@@ -1734,6 +1763,7 @@ void G_glFramebufferTexture2D(CPU *c) { RT_PRIMEIRA("glFramebufferTexture2D");
     GLenum a2 = (GLenum)arg32(&a);
     GLuint a3 = (GLuint)arg32(&a);
     GLint a4 = (GLint)arg32(&a);
+    pq_anexo(a0, a1, a3, 0, a2);
     p(a0, a1, a2, a3, a4);
 }
 void G_glFramebufferTexture2DDownsampleIMG(CPU *c) { RT_PRIMEIRA("glFramebufferTexture2DDownsampleIMG");
@@ -1788,6 +1818,7 @@ void G_glFramebufferTextureEXT(CPU *c) { RT_PRIMEIRA("glFramebufferTextureEXT");
     GLenum a1 = (GLenum)arg32(&a);
     GLuint a2 = (GLuint)arg32(&a);
     GLint a3 = (GLint)arg32(&a);
+    pq_anexo(a0, a1, a2, 0, 0);
     p(a0, a1, a2, a3);
 }
 void G_glFramebufferTextureLayer(CPU *c) { RT_PRIMEIRA("glFramebufferTextureLayer");
@@ -1798,6 +1829,7 @@ void G_glFramebufferTextureLayer(CPU *c) { RT_PRIMEIRA("glFramebufferTextureLaye
     GLuint a2 = (GLuint)arg32(&a);
     GLint a3 = (GLint)arg32(&a);
     GLint a4 = (GLint)arg32(&a);
+    pq_anexo(a0, a1, a2, 0, (GLuint)a4);
     p(a0, a1, a2, a3, a4);
 }
 void G_glFramebufferTextureLayerDownsampleIMG(CPU *c) { RT_PRIMEIRA("glFramebufferTextureLayerDownsampleIMG");
@@ -1842,6 +1874,7 @@ void G_glFramebufferTextureOES(CPU *c) { RT_PRIMEIRA("glFramebufferTextureOES");
     GLenum a1 = (GLenum)arg32(&a);
     GLuint a2 = (GLuint)arg32(&a);
     GLint a3 = (GLint)arg32(&a);
+    pq_anexo(a0, a1, a2, 0, 0);
     p(a0, a1, a2, a3);
 }
 void G_glFrontFace(CPU *c) { RT_PRIMEIRA("glFrontFace");
