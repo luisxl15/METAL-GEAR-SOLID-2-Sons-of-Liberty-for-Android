@@ -244,8 +244,37 @@ public class ArranqueTelaCheiaMGS2HD extends Activity {
         controles.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) { abreEditor(); } });
     }
 
+    /**
+     * O PreferencesManager da Forge faz getExternalFilesDir(null), getExternalCacheDir() e
+     * getObbDir() .getAbsolutePath() sem conferir null: no Snapdragon 7+ Gen 2 o cache veio null
+     * e o MainActivity caiu com NullPointerException. O Android as vezes so cria a pasta na
+     * segunda chamada; se continuar null, e pasta de outro dono (copiada pelo PC/adb ou de uma
+     * instalacao anterior) e so apagar resolve. Devolve o nome da pasta que falta, ou null.
+     */
+    private String pastaQueFalta() {
+        for (int t = 0; t < 5; t++) {
+            String falta = getExternalFilesDir(null) == null ? "files"
+                    : getExternalCacheDir() == null ? "cache" : getObbDir() == null ? "obb" : null;
+            if (falta == null) return null;
+            LogArquivo.anexa("pasta do app indisponivel: " + falta + " (tentativa " + (t + 1) + ")");
+            if (t == 4) return falta;
+            try { Thread.sleep(200); } catch (InterruptedException e) { return falta; }
+        }
+        return null;
+    }
+
     private void jogar() {
         AjustesMGS2.gravaNativo(this);
+        String falta = pastaQueFalta();
+        if (falta != null) {
+            // so a cache pode ser apagada: files tem o save e os dados extraidos, obb tem as OBBs
+            new android.app.AlertDialog.Builder(this)
+                    .setMessage("cache".equals(falta)
+                            ? Textos.t("O Android não liberou a pasta de cache do jogo. Apague só a pasta Android/data/jp.konami.mgs2hd.shield/cache pelo gerenciador de arquivos (o save e os dados ficam em files), reinicie o celular e abra o jogo de novo.")
+                            : Textos.f("O Android não liberou a pasta \"%s\" do jogo. Reinicie o celular e abra o jogo de novo.", falta))
+                    .setPositiveButton("OK", null).show();
+            return;
+        }
         if (!ExtratorObb.pronto(this)) { preparaDados(); return; }   // 1a vez: tira os arquivos das OBBs
         Intent i = new Intent();
         i.setClassName(this, SPLASH);
