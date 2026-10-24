@@ -17,22 +17,63 @@ extern const char *g_dir_dados;
 static char dir_libs[512];
 static pthread_once_t uma_vez = PTHREAD_ONCE_INIT;
 
-/* SIGSEGV/SIGBUS: registra a ultima ponte (GL etc.) desta thread e morre como antes */
+/* Sinais fatais: registra onde foi (funcao recompilada F_xxxxxxxx = endereco ARM32 do jogo) e a
+ * ultima ponte desta thread, e morre como antes. SIGILL e o caso do ARMv8.0 (Snapdragon 680);
+ * SIGTRAP e o raise(5) das assercoes do jogo. */
 #include <signal.h>
+#include <ucontext.h>
 extern __thread uint32_t t_ultima_ponte, t_ultima_lr;
 const char *rt_nome_ponte(uint32_t ad);
-static struct sigaction ant_segv, ant_bus;
+static const int SINAIS[] = { SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP, SIGABRT };
+static struct sigaction ant[sizeof SINAIS / sizeof SINAIS[0]];
 static void no_sinal(int sig, siginfo_t *si, void *uc) {
-    rt_log("SINAL %d em %p; ultima ponte desta thread: %s (lr do jogo %08x)", sig, si->si_addr,
+    uintptr_t pc = (uintptr_t)((ucontext_t *)uc)->uc_mcontext.pc;
+    Dl_info di; memset(&di, 0, sizeof di);
+    dladdr((void *)pc, &di);
+    const char *lib = di.dli_fname ? (strrchr(di.dli_fname, '/') ? strrchr(di.dli_fname, '/') + 1 : di.dli_fname) : "?";
+    rt_log("SINAL %d (codigo %d) em %p, pc %s+0x%lx (%s); ultima ponte desta thread: %s (lr do jogo %08x)",
+           sig, si->si_code, si->si_addr, lib,
+           (unsigned long)(pc - (uintptr_t)di.dli_fbase), di.dli_sname ? di.dli_sname : "?",
            t_ultima_ponte ? rt_nome_ponte(t_ultima_ponte) : "nenhuma", t_ultima_lr);
-    sigaction(sig, sig == SIGSEGV ? &ant_segv : &ant_bus, NULL);
-    (void)uc;
+    for (unsigned k = 0; k < sizeof SINAIS / sizeof SINAIS[0]; k++)
+        if (SINAIS[k] == sig) sigaction(sig, &ant[k], NULL);
+    /* falha de instrucao/memoria: ao voltar, a instrucao repete e o tratador antigo age.
+     * raise()/abort()/kill: o sinal nao repete sozinho, entao manda de novo (fica pendente
+     * ate este tratador voltar) -- senao o jogo seguiria depois da assercao. */
+    if (si->si_code <= 0) raise(sig);
 }
 static void instala_sinais(void) {
     struct sigaction sa; memset(&sa, 0, sizeof sa);
     sa.sa_sigaction = no_sinal; sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
-    sigaction(SIGSEGV, &sa, &ant_segv);
-    sigaction(SIGBUS, &sa, &ant_bus);
+    for (unsigned k = 0; k < sizeof SINAIS / sizeof SINAIS[0]; k++) sigaction(SINAIS[k], &sa, &ant[k]);
+}
+
+/* files/mgs2_log.txt (ao lado de saveData, que e o FORGELIB_LOG_PATH) + cabecalho do aparelho */
+#include <sys/auxv.h>
+#include <unistd.h>
+#include <sys/system_properties.h>
+#include <asm/hwcap.h>
+void rt_log_arquivo(FILE *f);
+static void abre_log(void) {
+    const char *pd = getenv("FORGELIB_LOG_PATH");
+    if (!pd) return;
+    char cam[600];
+    snprintf(cam, sizeof cam, "%s", pd);
+    char *b = strrchr(cam, '/');
+    if (!b) return;
+    snprintf(b, sizeof cam - (size_t)(b - cam), "/mgs2_log.txt");
+    FILE *f = fopen(cam, "a");
+    if (!f) return;
+    rt_log_arquivo(f);
+    char modelo[PROP_VALUE_MAX] = "", fab[PROP_VALUE_MAX] = "", soc[PROP_VALUE_MAX] = "", android[PROP_VALUE_MAX] = "";
+    __system_property_get("ro.product.manufacturer", fab);
+    __system_property_get("ro.product.model", modelo);
+    __system_property_get("ro.soc.model", soc);
+    if (!soc[0]) __system_property_get("ro.board.platform", soc);
+    __system_property_get("ro.build.version.release", android);
+    unsigned long hw = getauxval(AT_HWCAP);
+    rt_log("==== MGS2 ARM64: %s %s, SoC %s, Android %s, atomicas LSE %s, %ld nucleos ====", fab, modelo, soc,
+           android, hw & HWCAP_ATOMICS ? "sim" : "nao", sysconf(_SC_NPROCESSORS_CONF));
 }
 
 /* Saves das versoes antigas: o cartao de memoria do jogo criava a pasta de cada save sem o
@@ -62,6 +103,7 @@ static void conserta_pastas_de_save(void) {
 }
 
 static void sobe(void) {
+    abre_log();
     instala_sinais();
     conserta_pastas_de_save();
     Dl_info di;

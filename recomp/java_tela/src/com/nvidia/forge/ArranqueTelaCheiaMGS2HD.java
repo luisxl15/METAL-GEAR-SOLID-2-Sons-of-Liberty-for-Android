@@ -138,6 +138,7 @@ public class ArranqueTelaCheiaMGS2HD extends Activity {
     private static void registra(Application app) {
         if (registrado) return;
         registrado = true;
+        LogArquivo.inicia(app);
         app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity a, Bundle b) { telaCheia(a); }
             @Override public void onActivityStarted(Activity a) { }

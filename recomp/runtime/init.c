@@ -18,9 +18,36 @@ void sles_inicia_iids(uint32_t engine, uint32_t bq, uint32_t play, uint32_t vol)
 const char *g_dir_dados = ".";   /* onde estao os .img (o app define) */
 
 /* ---- log ----------------------------------------------------------------- */
+#ifdef __ANDROID__
+/* Copia do log em arquivo (files/mgs2_log.txt, aberto pelo android.c): o logcat e um buffer
+ * em memoria que some em minutos, e quem nao tem PC com adb nao tinha como mandar log. O
+ * rodizio para mgs2_log_anterior.txt e do Java (LogArquivo), na abertura do app. */
+#include <time.h>
+#include <unistd.h>
+static FILE *arq_log;
+static long tam_log;
+#define TETO_LOG (8L << 20)            /* 8 MB: um laco de log nao enche o armazenamento */
+void rt_log_arquivo(FILE *f) { arq_log = f; if (f) { fseek(f, 0, SEEK_END); tam_log = ftell(f); } }
+static void no_arquivo(int prio, const char *tag, const char *msg) {
+    FILE *f = arq_log;
+    if (!f || tam_log > TETO_LOG) return;
+    struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);
+    struct tm t; localtime_r(&ts.tv_sec, &t);
+    char l[1200];
+    int n = snprintf(l, sizeof l, "%02d:%02d:%02d.%03ld %5d %c %s: %s\n", t.tm_hour, t.tm_min, t.tm_sec,
+                     ts.tv_nsec / 1000000, gettid(), "  VDIWEF"[prio & 7], tag, msg);
+    if (n <= 0) return;
+    if (n >= (int)sizeof l) n = sizeof l - 1;
+    long tam = __atomic_add_fetch(&tam_log, n, __ATOMIC_RELAXED);
+    if (tam > TETO_LOG) { fputs("... log cortado em 8 MB\n", f); fflush(f); return; }
+    fwrite(l, 1, (size_t)n, f);        /* o FILE tem trava propria: a linha sai inteira */
+    fflush(f);                         /* sem buffer: o que vem antes de um crash fica gravado */
+}
+#endif
 void rt_log_prio(int prio, const char *tag, const char *msg) {
 #ifdef __ANDROID__
     __android_log_write(prio, tag, msg);
+    no_arquivo(prio, tag, msg);
 #else
     (void)prio;
     fprintf(stderr, "[%s] %s\n", tag, msg);

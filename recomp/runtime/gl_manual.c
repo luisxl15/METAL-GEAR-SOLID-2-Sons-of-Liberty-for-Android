@@ -488,10 +488,29 @@ void I_eglChooseConfig(CPU *c) { RT_PRIMEIRA("eglChooseConfig");
 void I_eglGetConfigAttrib(CPU *c) { RT_PRIMEIRA("eglGetConfigAttrib"); EGLint v = 0; EGLBoolean r = eglGetConfigAttrib(egl_obj(c->r[0]), egl_obj(c->r[1]), (EGLint)c->r[2], &v); memcpy(g_mem + c->r[3], &v, 4); ret32(c, r); }
 void I_eglCreateContext(CPU *c) { RT_PRIMEIRA("eglCreateContext");
     if (c->r[3]) { const EGLint *o = G2H(c->r[3]); for (int i = 0; i < 32 && o[i] != EGL_NONE; i += 2) rt_log("eglCreateContext: %04x = %d", o[i], o[i + 1]); }
-    static const EGLint es32[] = { EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, 2,
-                                   0x31B0 /* EGL_CONTEXT_OPENGL_DEBUG */, EGL_TRUE, EGL_NONE };
-    EGLContext k = eglCreateContext(egl_obj(c->r[0]), egl_obj(c->r[1]), egl_obj(c->r[2]), es32);
-    if (!k) rt_log("eglCreateContext falhou: %x", eglGetError());
+    /* Em ordem, ate um dar certo. EGL_CONTEXT_OPENGL_DEBUG e do EGL 1.5: o Mali-G76 do Helio
+     * G90 (Realme 6, Android 11, EGL 1.4 + KHR_create_context) recusa com EGL_BAD_ATTRIBUTE, e
+     * sem contexto o jogo morria num strstr(NULL) de glGetString(GL_EXTENSIONS). Ele so serve ao
+     * KHR_debug do build de depuracao. CLIENT_VERSION 3 cobre driver sem KHR_create_context. */
+    static const EGLint tentativas[][7] = {
+#ifdef MGS2_DEPURA
+        { EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, 2, 0x31B0 /* EGL_CONTEXT_OPENGL_DEBUG */, EGL_TRUE, EGL_NONE },
+#endif
+        { EGL_CONTEXT_MAJOR_VERSION_KHR, 3, EGL_CONTEXT_MINOR_VERSION_KHR, 2, EGL_NONE },
+        { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE },
+    };
+    static const char *nomes[] = {
+#ifdef MGS2_DEPURA
+        "3.2 depuracao",
+#endif
+        "3.2", "3 (CLIENT_VERSION)" };
+    EGLContext k = EGL_NO_CONTEXT;
+    for (unsigned t = 0; t < sizeof tentativas / sizeof tentativas[0] && !k; t++) {
+        k = eglCreateContext(egl_obj(c->r[0]), egl_obj(c->r[1]), egl_obj(c->r[2]), tentativas[t]);
+        if (!k) rt_log("eglCreateContext (GLES %s) falhou: %x", nomes[t], eglGetError());
+        else if (t) rt_log("eglCreateContext: GLES %s", nomes[t]);
+    }
+    if (!k) rt_fatal("sem contexto OpenGL ES 3: o driver de video recusou todas as tentativas");
     ret32(c, egl_handle(k));
 }
 void I_eglDestroyContext(CPU *c) { RT_PRIMEIRA("eglDestroyContext"); EGLBoolean r = eglDestroyContext(egl_obj(c->r[0]), egl_obj(c->r[1])); egl_esquece(c->r[1]); ret32(c, r); }
