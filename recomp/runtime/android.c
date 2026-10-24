@@ -139,9 +139,30 @@ static uint64_t agora_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONI
 static uint64_t ini_janela;
 static unsigned quadros;
 static volatile unsigned long long g_quadros_jogo;   /* medidor de FPS (MedidorFps.java) */
+/* Quadro lento: o que custou naquele quadro (contadores g_est do gl_manual.c, diferenca entre
+ * duas trocas de quadro). Vai para o mgs2_log.txt: e o que diz a causa de uma queda num
+ * aparelho que nao temos. Ate 1 linha por segundo e 300 por sessao, nada nos 10 s iniciais. */
+extern volatile long long g_est[12];
+static void quadro_lento(uint64_t t) {
+    static long long ant[12];
+    static uint64_t ult, ult_aviso, primeiro;
+    static unsigned avisos;
+    long long d[12];
+    for (int i = 0; i < 12; i++) { long long v = g_est[i]; d[i] = v >= ant[i] ? v - ant[i] : v; ant[i] = v; }   /* depuracao zera a cada 2 s */
+    if (!primeiro) primeiro = t;
+    if (ult && t - ult > 50000000ull && t - primeiro > 10000000000ull && t - ult_aviso > 1000000000ull && avisos < 300) {
+        avisos++; ult_aviso = t;
+        rt_log("quadro lento: %.0f ms | texturas %lld KB, compilacoes %lld, ReadPixels %lld, mapas c/ leitura %lld "
+               "(%lld KB lidos da GPU), BufferData %lld KB, pastas lidas %lld, arquivos abertos %lld, desenhos %lld",
+               (t - ult) / 1e6, d[7] >> 10, d[8], d[9], d[3], d[1] >> 10, (d[5] + d[6]) >> 10, d[10], d[11], d[4]);
+    }
+    ult = t;
+}
+
 void rt_quadro(void) {
     __atomic_fetch_add(&g_quadros_jogo, 1, __ATOMIC_RELAXED);
     uint64_t t = agora_ns();
+    quadro_lento(t);
     if (!ini_janela) ini_janela = t;
     quadros++;
     if (t - ini_janela >= 2000000000ull) {

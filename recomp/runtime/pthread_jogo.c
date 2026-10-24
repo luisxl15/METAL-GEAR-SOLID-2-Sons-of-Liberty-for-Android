@@ -17,6 +17,7 @@
 #ifndef _WIN32
 #include <pthread.h>
 #include <sched.h>
+#include <unistd.h>
 #include <time.h>
 #endif
 
@@ -251,37 +252,60 @@ void I_pthread_kill(CPU *c) { RT_PRIMEIRA("pthread_kill");
     if (id >= MAX_THREADS || !thrs[id].usado) { ret32(c, ESRCH); return; }
     ret32(c, c->r[1] == 0 ? 0 : (uint32_t)pthread_kill(thrs[id].h, (int)c->r[1]));
 }
-/* Nucleos rapidos: os de maior frequencia maxima (>= 85% da maior; pelo menos 2).
- * No MediaTek (1+3+4, 4+4) uma thread pesada num nucleo de eficiencia corta o
- * desempenho pela metade; o agendador do Android nem sempre move a tempo. */
+/* Nucleos rapidos: tira so os nucleos PEQUENOS (de eficiencia). No MediaTek (1+3+4, 4+4)
+ * uma thread pesada num nucleo pequeno corta o desempenho pela metade e o agendador do
+ * Android nem sempre move a tempo.
+ * Antes o corte era 85% da maior FREQUENCIA: no Snapdragon 8 Elite (2 x 4,32 GHz + 6 x 3,53
+ * GHz, 82%) as threads MainGame e D3DGL ficavam presas a 2 nucleos, e qualquer outra thread
+ * pesada neles (audio, carregamento, driver de video) as segurava com 6 nucleos grandes
+ * livres. E frequencia engana: no Helio G99 o A55 vai a 2,0 GHz e o A76 a 2,2 (91%).
+ * Agora: cpu_capacity do kernel (a "forca" que o proprio EAS usa, ja pondera a
+ * microarquitetura) >= 60% da maior; sem ela, frequencia >= 70%. Pelo menos 2 nucleos. */
 #include <stdio.h>
 #include <sys/resource.h>
-static cpu_set_t nucleos_rapidos(int *quantos) {
-    long freq[32] = {0}, maior = 0;
-    int n = 0;
+static long le_sys(int k, const char *arq) {
+    char cam[96]; snprintf(cam, sizeof cam, "/sys/devices/system/cpu/cpu%d/%s", k, arq);
+    FILE *f = fopen(cam, "r");
+    long v = 0;
+    if (f) { if (fscanf(f, "%ld", &v) != 1) v = 0; fclose(f); }
+    return v;
+}
+static cpu_set_t nucleos_rapidos(int *quantos, const char **criterio) {
+    long cap[32] = {0}, freq[32] = {0}, maior_cap = 0, maior_freq = 0;
+    int com_cap = 0, existem = 0;
     for (int k = 0; k < 32; k++) {
-        char cam[96]; snprintf(cam, sizeof cam, "/sys/devices/system/cpu/cpu%d/cpufreq/cpuinfo_max_freq", k);
-        FILE *f = fopen(cam, "r");
-        if (!f) continue;
-        if (fscanf(f, "%ld", &freq[k]) == 1 && freq[k] > maior) maior = freq[k];
-        fclose(f);
+        freq[k] = le_sys(k, "cpufreq/cpuinfo_max_freq");
+        cap[k] = le_sys(k, "cpu_capacity");
+        if (freq[k]) existem++;
+        if (cap[k]) com_cap++;
+        if (freq[k] > maior_freq) maior_freq = freq[k];
+        if (cap[k] > maior_cap) maior_cap = cap[k];
     }
+    int usa_cap = com_cap > 0 && com_cap == existem;
+    *criterio = usa_cap ? "capacidade" : "frequencia";
     cpu_set_t m; CPU_ZERO(&m);
-    for (int lim = 85; lim >= 50 && n < 2; lim -= 15) {
+    int n = 0;
+    for (int lim = usa_cap ? 60 : 70; lim >= 30 && n < 2; lim -= 15) {
         CPU_ZERO(&m); n = 0;
-        for (int k = 0; k < 32; k++) if (freq[k] && freq[k] * 100 >= maior * lim) { CPU_SET(k, &m); n++; }
+        for (int k = 0; k < 32; k++) {
+            long v = usa_cap ? cap[k] : freq[k], maior = usa_cap ? maior_cap : maior_freq;
+            if (freq[k] && v && v * 100 >= maior * lim) { CPU_SET(k, &m); n++; }
+        }
     }
     *quantos = n;
     return m;
 }
 static void thread_pesada(pthread_t h, const char *nome) {
-    static cpu_set_t rapidos; static int n_rapidos = -1;
+    static cpu_set_t rapidos; static int n_rapidos = -1, todos;
     if (n_rapidos < 0) {
-        rapidos = nucleos_rapidos(&n_rapidos);
-        rt_log("nucleos rapidos: %d (afinidade das threads MainGame e D3DGL MTD3D)", n_rapidos);
+        const char *criterio;
+        rapidos = nucleos_rapidos(&n_rapidos, &criterio);
+        todos = (int)sysconf(_SC_NPROCESSORS_CONF);
+        rt_log("nucleos rapidos: %d de %d por %s (afinidade das threads MainGame e D3DGL MTD3D%s)",
+               n_rapidos, todos, criterio, n_rapidos >= todos ? ": nenhuma, todos sao grandes" : "");
     }
     pid_t tid = pthread_gettid_np(h);
-    if (n_rapidos >= 2) sched_setaffinity(tid, sizeof rapidos, &rapidos);
+    if (n_rapidos >= 2 && n_rapidos < todos) sched_setaffinity(tid, sizeof rapidos, &rapidos);
     setpriority(PRIO_PROCESS, (id_t)tid, -4);   /* um pouco acima do normal (o Android permite) */
     (void)nome;
 }

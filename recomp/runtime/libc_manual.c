@@ -396,6 +396,11 @@ void I_fopen(CPU *c) { RT_PRIMEIRA("fopen");
     h = aj_abre_config(p, G2H(c->r[1]));    /* config da Forge com os ajustes do usuario */
 #endif
     if (!h) h = fopen(p, G2H(c->r[1]));
+#ifndef _WIN32
+    { void rt_caminho_mudou(void); const char *m = G2H(c->r[1]);
+      if (h && (strchr(m, 'w') || strchr(m, 'a') || strchr(m, '+'))) rt_caminho_mudou(); }
+    { extern volatile long long g_est[12]; g_est[11]++; }
+#endif
     if (!h) {   /* falha de fopen sempre no log (as 40 primeiras): o motor usa o NULL sem conferir */
         static int nf; if (__atomic_fetch_add(&nf, 1, __ATOMIC_RELAXED) < 40)
             rt_log("fopen FALHOU: %s (%s) pedido %s", p, (char *)G2H(c->r[1]), (char *)G2H(c->r[0]));

@@ -357,7 +357,8 @@ static Mapa *mapa_de(GLenum alvo, int cria) {
 }
 /* medicao de custo por janela de 2 s (impresso junto com os quadros/s) */
 /* g_est: 0 mapas, 1 bytes lidos p/ sombra, 2 bytes escritos da sombra, 3 mapas c/ READ,
-                                   4 desenhos, 5 bufferdata bytes, 6 bufsubdata bytes, 7 teximagem bytes, 8 compilacoes */
+                                   4 desenhos, 5 bufferdata bytes, 6 bufsubdata bytes, 7 teximagem bytes, 8 compilacoes,
+          9 ReadPixels, 10 pastas lidas (caminho.c), 11 fopen (libc_manual.c); quadro lento em android.c */
 void gl_estat_log(void) {
     rt_log("custo/2s: mapas %lld (READ %lld), sombra lida %lld KB, escrita %lld KB, desenhos %lld, BufferData %lld KB, BufferSubData %lld KB, texturas %lld KB, compilacoes %lld",
            g_est[0], g_est[3], g_est[1] >> 10, g_est[2] >> 10, g_est[4], g_est[5] >> 10, g_est[6] >> 10, g_est[7] >> 10, g_est[8]);

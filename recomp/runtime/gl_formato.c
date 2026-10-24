@@ -121,31 +121,40 @@ static Fmt traduz(GLint fi, GLenum f, GLenum t) {
     return r;
 }
 
-/* ---- conversao de pixels (mesmo tamanho de pixel) ------------------------ */
-static void converte(int cv, uint8_t *d, size_t n) {
+/* ---- conversao de pixels (mesmo tamanho de pixel) ------------------------
+ * Copia da memoria do jogo e converte no mesmo passe (antes: memcpy e depois a troca byte a
+ * byte, dois passes por textura). BGRA8 -> RGBA8 em palavras de 32 bits (o clang vetoriza). */
+static void converte(int cv, uint8_t *d, const uint8_t *o, size_t n) {
     switch (cv) {
-    case CV_TROCA_RB32: for (size_t i = 0; i + 4 <= n; i += 4) { uint8_t b = d[i]; d[i] = d[i + 2]; d[i + 2] = b; } break;
+    case CV_TROCA_RB32: {
+        size_t i = 0;
+        for (; i + 4 <= n; i += 4) {
+            uint32_t v; memcpy(&v, o + i, 4);
+            v = (v & 0xff00ff00u) | ((v >> 16) & 0xffu) | ((v & 0xffu) << 16);
+            memcpy(d + i, &v, 4);
+        }
+    } break;
     case CV_ARGB1555: case CV_XRGB1555:
         for (size_t i = 0; i + 2 <= n; i += 2) {
-            uint16_t v; memcpy(&v, d + i, 2);
+            uint16_t v; memcpy(&v, o + i, 2);
             uint16_t a = cv == CV_XRGB1555 ? 1 : (v >> 15);
             v = (uint16_t)(((v & 0x7fff) << 1) | a); memcpy(d + i, &v, 2);
         } break;
     case CV_ARGB4444: case CV_XRGB4444:
         for (size_t i = 0; i + 2 <= n; i += 2) {
-            uint16_t v; memcpy(&v, d + i, 2);
+            uint16_t v; memcpy(&v, o + i, 2);
             uint16_t a = cv == CV_XRGB4444 ? 0xf : (v >> 12);
             v = (uint16_t)(((v & 0x0fff) << 4) | a); memcpy(d + i, &v, 2);
         } break;
     case CV_A2RGB10_TROCA:
         for (size_t i = 0; i + 4 <= n; i += 4) {
-            uint32_t v; memcpy(&v, d + i, 4);
+            uint32_t v; memcpy(&v, o + i, 4);
             uint32_t r = (v >> 20) & 0x3ff, b = v & 0x3ff;   /* BGRA: B nos bits baixos */
             v = (v & 0xc00ffc00u) | (b << 20) | r; memcpy(d + i, &v, 4);
         } break;
     case CV_U16_MEIO:      /* unorm16 -> binary16 de v/65535 */
         for (size_t i = 0; i + 2 <= n; i += 2) {
-            uint16_t v; memcpy(&v, d + i, 2);
+            uint16_t v; memcpy(&v, o + i, 2);
             float f = v / 65535.0f;
             uint32_t u; memcpy(&u, &f, 4);
             uint16_t hh;
@@ -155,10 +164,14 @@ static void converte(int cv, uint8_t *d, size_t n) {
         } break;
     case CV_RGB565_REV:
         for (size_t i = 0; i + 2 <= n; i += 2) {
-            uint16_t v; memcpy(&v, d + i, 2);
+            uint16_t v; memcpy(&v, o + i, 2);
             v = (uint16_t)(((v & 0x1f) << 11) | (v & 0x7e0) | (v >> 11)); memcpy(d + i, &v, 2);
         } break;
+    default: memcpy(d, o, n);
     }
+    /* sobra que nao fecha um pixel (o buffer pedido inclui folga): copiada como estava */
+    size_t u = (cv == CV_TROCA_RB32 || cv == CV_A2RGB10_TROCA) ? 4 : cv == CV_NADA ? 1 : 2;
+    if (n % u) memcpy(d + n - n % u, o + n - n % u, n % u);
 }
 
 static int bpp_de(GLenum f, GLenum t) {
@@ -192,14 +205,30 @@ static const void *pixels(const Fmt *x, uint32_t p, GLsizei w, GLsizei h, GLsize
     size_t alt = (size_t)(ih ? ih : h);
     size_t n = linha * alt * (size_t)(d + si) + linha * (size_t)sr + (size_t)sp * (size_t)bpp + linha;
     uint8_t *c = malloc(n);
-    memcpy(c, g_mem + p, n);
-    converte(x->conv, c, n);
+    converte(x->conv, c, g_mem + p, n);
     *livre = c;
     return c;
 }
 
-/* ---- erros atribuidos a chamada que os causou ---------------------------- */
+/* ---- erros atribuidos a chamada que os causou ----------------------------
+ * glGetError espera o driver (thread propria na Adreno e na Mali) esvaziar a fila: antes,
+ * DOIS por subida de textura, e a CPU parava justo onde mais se sobe textura (videos, codec,
+ * troca de area). Agora so na primeira vez de cada combinacao (chamada, interno, formato, tipo),
+ * que e quando um formato sem suporte aparece; depois o erro, se houver, fica para o jogo. */
 __thread GLenum t_erro_gl_pendente;    /* devolvido pelo proximo glGetError do jogo */
+#define COMBOS 512
+static uint64_t combos[COMBOS];
+static int combo_nova(int chamada, GLint fi, GLenum f, GLenum t) {
+    uint64_t k = ((uint64_t)(uint32_t)chamada << 60) ^ ((uint64_t)(uint32_t)fi << 32) ^ ((uint64_t)(f & 0xffff) << 16) ^ (t & 0xffff) ^ 1;
+    unsigned h = (unsigned)((k * 0x9E3779B97F4A7C15ull) >> 55) & (COMBOS - 1);
+    for (unsigned i = 0; i < COMBOS; i++, h = (h + 1) & (COMBOS - 1)) {
+        uint64_t v = __atomic_load_n(&combos[h], __ATOMIC_RELAXED);
+        if (v == k) return 0;
+        if (!v) { uint64_t z = 0; if (__atomic_compare_exchange_n(&combos[h], &z, k, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) return 1;
+                  if (z == k) return 0; }
+    }
+    return 0;                          /* tabela cheia: para de conferir */
+}
 static void confere(const char *fn, GLint fi, GLenum f, GLenum t, const Fmt *x) {
     GLenum e = glGetError();
     if (!e) return;
@@ -213,38 +242,42 @@ static void alfa_um(GLenum alvo) {
 }
 
 void fmt_tex_image2d(GLenum alvo, GLint l, GLint fi, GLsizei w, GLsizei h, GLint b, GLenum f, GLenum t, uint32_t p, GLuint pbo) {
-    glGetError();
+    int nova = combo_nova(1, fi, f, t);
+    if (nova) glGetError();
     Fmt x = traduz(fi, f, t);
     void *livre; const void *px = pixels(&x, p, w, h, 1, pbo, &livre);
     glTexImage2D(alvo, l, x.fi, w, h, b, x.f, x.t, px);
     free(livre);
-    confere("glTexImage2D", fi, f, t, &x);
+    if (nova) confere("glTexImage2D", fi, f, t, &x);
     if (x.alfa1 && l == 0) alfa_um(alvo);
 }
 void fmt_tex_sub_image2d(GLenum alvo, GLint l, GLint xo, GLint yo, GLsizei w, GLsizei h, GLenum f, GLenum t, uint32_t p, GLuint pbo) {
-    glGetError();
+    int nova = combo_nova(2, -1, f, t);
+    if (nova) glGetError();
     Fmt x = traduz(-1, f, t);
     void *livre; const void *px = pixels(&x, p, w, h, 1, pbo, &livre);
     glTexSubImage2D(alvo, l, xo, yo, w, h, x.f, x.t, px);
     free(livre);
-    confere("glTexSubImage2D", -1, f, t, &x);
+    if (nova) confere("glTexSubImage2D", -1, f, t, &x);
 }
 void fmt_tex_image3d(GLenum alvo, GLint l, GLint fi, GLsizei w, GLsizei h, GLsizei d, GLint b, GLenum f, GLenum t, uint32_t p, GLuint pbo) {
-    glGetError();
+    int nova = combo_nova(3, fi, f, t);
+    if (nova) glGetError();
     Fmt x = traduz(fi, f, t);
     void *livre; const void *px = pixels(&x, p, w, h, d, pbo, &livre);
     glTexImage3D(alvo, l, x.fi, w, h, d, b, x.f, x.t, px);
     free(livre);
-    confere("glTexImage3D", fi, f, t, &x);
+    if (nova) confere("glTexImage3D", fi, f, t, &x);
     if (x.alfa1 && l == 0) alfa_um(alvo);
 }
 void fmt_tex_sub_image3d(GLenum alvo, GLint l, GLint xo, GLint yo, GLint zo, GLsizei w, GLsizei h, GLsizei d, GLenum f, GLenum t, uint32_t p, GLuint pbo) {
-    glGetError();
+    int nova = combo_nova(4, -1, f, t);
+    if (nova) glGetError();
     Fmt x = traduz(-1, f, t);
     void *livre; const void *px = pixels(&x, p, w, h, d, pbo, &livre);
     glTexSubImage3D(alvo, l, xo, yo, zo, w, h, d, x.f, x.t, px);
     free(livre);
-    confere("glTexSubImage3D", -1, f, t, &x);
+    if (nova) confere("glTexSubImage3D", -1, f, t, &x);
 }
 /* formato interno de armazenamento (TexStorage / Renderbuffer): so o nome */
 GLenum fmt_interno(GLenum fi, int renderbuffer) {
@@ -277,6 +310,7 @@ GLenum fmt_interno(GLenum fi, int renderbuffer) {
 }
 void fmt_read_pixels(GLint x0, GLint y0, GLsizei w, GLsizei h, GLenum f, GLenum t, uint32_t p, GLuint pbo) {
     GLenum t2 = t == 0x8367 ? GL_UNSIGNED_BYTE : t;   /* BGRA+REV = BGRA_EXT+UBYTE (EXT_read_format_bgra) */
+    g_est[9]++;                                       /* leitura da GPU pela CPU: espera a GPU */
     glReadPixels(x0, y0, w, h, f, t2, pbo ? (void *)(uintptr_t)p : (void *)(g_mem + p));
 }
 
