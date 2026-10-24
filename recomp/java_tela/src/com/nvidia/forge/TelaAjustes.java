@@ -310,7 +310,7 @@ final class TelaAjustes {
         swFps.setOnCheckedChangeListener(new android.widget.CompoundButton.OnCheckedChangeListener() {
             @Override public void onCheckedChanged(android.widget.CompoundButton b, boolean v) { medidor = v; }
         });
-        c1.addView(linha(Textos.t("Medidor de FPS"), Textos.t("No canto da tela: quadros do jogo e, com a geração ligada, quadros na tela (reais + gerados)."), swFps));
+        c1.addView(linha(Textos.t("Medidor de FPS"), Textos.t("No canto da tela: quadros por segundo na tela e a velocidade do jogo (100% = velocidade normal)."), swFps));
         cont.addView(c1);
 
         // --- GERACAO DE QUADROS (LSFG, como no emulador Eden)

@@ -15,9 +15,8 @@ import android.widget.TextView;
  * Medidor de FPS por cima do jogo, no canto superior esquerdo.
  *
  * Os numeros vem do runtime nativo (libMGS2HD.so, android.c), NAO do Choreographer da
- * interface: "JOGO" conta os eglSwapBuffers do jogo (o ritmo real da logica e do desenho);
- * "TELA" conta os quadros que chegaram a tela. Sem a geracao de quadros os dois sao
- * iguais; com o LSFG ligado a tela mostra reais + gerados (60 + 60 = 120).
+ * interface: "FPS" sao os quadros que chegaram a tela (com o LSFG, reais + gerados);
+ * "VELOCIDADE" e o ritmo da logica do jogo sobre 60 (os eglSwapBuffers, pulados ou nao).
  */
 final class MedidorFps {
     private static final long PERIODO_MS = 500;
@@ -66,9 +65,12 @@ final class MedidorFps {
                 if (c != null && antes != null && t > tAntes) {
                     double s = (t - tAntes) / 1e9;
                     double jogo = (c[0] - antes[0]) / s, tela = (c[1] - antes[1]) / s, ger = (c[2] - antes[2]) / s;
-                    String txt = String.format(java.util.Locale.ROOT, "%s %3.0f FPS  %4.1f ms", Textos.t("JOGO"), jogo, jogo > 0 ? 1000 / jogo : 0);
-                    if (c[3] != 0)
-                        txt += String.format(java.util.Locale.ROOT, "\n%s %3.0f FPS  LSFG +%.0f", Textos.t("TELA"), tela, ger);
+                    /* o numero de cima e o que se ve (quadros na tela); embaixo, a velocidade do
+                     * jogo: o MGS2 anda um passo por quadro e foi feito para 60. Com a velocidade
+                     * constante a tela pode estar em 30 e o jogo em 100%; sem ela, 30 = 50%. */
+                    String txt = String.format(java.util.Locale.ROOT, "FPS %3.0f  %4.1f ms", tela, tela > 0 ? 1000 / tela : 0);
+                    if (c[3] != 0) txt += String.format(java.util.Locale.ROOT, "  LSFG +%.0f", ger);
+                    txt += String.format(java.util.Locale.ROOT, "\n%s %3.0f%%", Textos.t("VELOCIDADE"), Math.min(100, jogo * 100 / 60));
                     tv.setText(txt);
                 }
                 if (c != null) { antes = c; tAntes = t; }
